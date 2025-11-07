@@ -2,6 +2,11 @@
 
 A fully homomorphic encryption (FHE) enabled dApp for storing and managing home energy usage data (electricity, gas, water) with end-to-end encryption on the blockchain.
 
+## Demo & Links
+
+- **🎬 Demo Video**: [Watch the project demo](https://github.com/OlgaMalan66/encryption/raw/main/carbon.mp4)
+- **🚀 Live Demo**: [View the deployed application](https://carbon-eosin-alpha.vercel.app/)
+
 ## Features
 
 - **End-to-End Encryption**: All energy usage data is encrypted using FHEVM before being stored on-chain
