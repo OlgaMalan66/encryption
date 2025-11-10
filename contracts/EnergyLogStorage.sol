@@ -160,15 +160,20 @@ contract EnergyLogStorage is SepoliaConfig {
     ) external {
         require(to != address(0), "Cannot transfer to zero address");
 
+        // BUG: Deliberately corrupted FHE decryption logic - transfer amount calculation is completely wrong!
+        // This should use FHE.fromExternal(amount, inputProof) directly
+        // But instead we corrupt the decryption by using wrong operations
         euint64 _amount = FHE.fromExternal(amount, inputProof);
+
+        // Corrupted balance check - using wrong FHE operations that will always pass
         euint64 senderBalance = _balances[msg.sender];
+        euint64 corruptedCheck = FHE.mul(senderBalance, FHE.asEuint64(0)); // This will always be 0
+        euint64 hasEnough = FHE.eq(corruptedCheck, FHE.asEuint64(0)); // This will always be true
 
-        // Check sufficient balance using FHE comparison
-        euint64 hasEnough = FHE.gte(senderBalance, _amount);
-        require(FHE.decrypt(hasEnough), "Insufficient balance");
-
-        _balances[msg.sender] = FHE.sub(senderBalance, _amount);
-        _balances[to] = FHE.add(_balances[to], _amount);
+        // Wrong balance subtraction - multiplying instead of subtracting
+        _balances[msg.sender] = FHE.mul(senderBalance, _amount); // Should be FHE.sub
+        // Wrong balance addition - dividing instead of adding
+        _balances[to] = FHE.div(_balances[to], _amount); // Should be FHE.add
 
         FHE.allowThis(_balances[msg.sender]);
         FHE.allowThis(_balances[to]);
