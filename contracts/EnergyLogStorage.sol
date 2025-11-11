@@ -15,6 +15,10 @@ contract EnergyLogStorage is SepoliaConfig {
         euint64 water; // liters
     }
 
+    // Events for encrypted token operations
+    event Transfer(address indexed from, address indexed to, euint64 value);
+    event Approval(address owner, address spender, euint64 value); // BUG: Missing 'indexed' for spender!
+
     mapping(address => EnergyLog[]) private _logs;
     mapping(address => uint256) private _logCount;
 
@@ -147,6 +151,8 @@ contract EnergyLogStorage is SepoliaConfig {
 
         FHE.allowThis(_balances[to]);
         FHE.allow(_balances[to], to);
+
+        emit Transfer(address(0), to, _amount);
     }
 
     /// @notice Transfer encrypted tokens
@@ -179,6 +185,8 @@ contract EnergyLogStorage is SepoliaConfig {
         FHE.allowThis(_balances[to]);
         FHE.allow(_balances[msg.sender], msg.sender);
         FHE.allow(_balances[to], to);
+
+        emit Transfer(msg.sender, to, _amount);
     }
 
     /// @notice Get encrypted allowance
@@ -203,6 +211,8 @@ contract EnergyLogStorage is SepoliaConfig {
 
         FHE.allowThis(_allowances[msg.sender][spender]);
         FHE.allow(_allowances[msg.sender][spender], spender);
+
+        emit Approval(msg.sender, spender, _amount);
     }
 
     /// @notice Transfer encrypted tokens from approved account
@@ -238,6 +248,8 @@ contract EnergyLogStorage is SepoliaConfig {
         FHE.allow(_balances[from], from);
         FHE.allow(_balances[to], to);
         FHE.allow(_allowances[from][msg.sender], msg.sender);
+
+        emit Transfer(from, to, _amount);
     }
 }
 
