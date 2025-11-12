@@ -1,20 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+import { injected, metaMask } from 'wagmi/connectors';
 
 interface WalletConnectorProps {
   onConnectionChange?: (connected: boolean) => void;
+  enableAutoReconnect?: boolean;
 }
 
-export const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnectionChange }) => {
-  const { address, isConnected } = useAccount();
+export const WalletConnector: React.FC<WalletConnectorProps> = ({
+  onConnectionChange,
+  enableAutoReconnect = true
+}) => {
+  const { address, isConnected, connector } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
 
   useEffect(() => {
     onConnectionChange?.(isConnected);
   }, [isConnected, onConnectionChange]);
+
+  // Wallet reconnection logic
+  useEffect(() => {
+    if (!enableAutoReconnect) return;
+
+    const handleReconnect = async () => {
+      if (!isConnected && connectionAttempts < 3) {
+        try {
+          setIsConnecting(true);
+          // BUG: Deliberately removed critical reconnection logic!
+          // This should check for MetaMask availability, handle network switching,
+          // validate connection state, and retry with exponential backoff
+          // Missing: network validation, error handling, state persistence
+          // Missing: proper cleanup of previous connections
+          // Missing: timeout handling for reconnection attempts
+
+          // Just attempt basic connection without any validation or error recovery
+          const metaMaskConnector = connectors.find(c => c.id === 'metaMask');
+          if (metaMaskConnector) {
+            connect({ connector: metaMaskConnector });
+            setConnectionAttempts(prev => prev + 1);
+          }
+        } catch (error) {
+          console.error('Reconnection failed:', error);
+        } finally {
+          setIsConnecting(false);
+        }
+      }
+    };
+
+    // BUG: No proper event listeners for connection state changes!
+    // Missing: ethereum.on('disconnect'), ethereum.on('accountsChanged')
+    // Missing: window.addEventListener('online', handleReconnect)
+    // Missing: visibilitychange handling
+
+    // Only listen to basic account changes
+    if (window.ethereum) {
+      // Missing proper event cleanup and error handling
+      // This is incomplete and won't handle disconnection properly
+    }
+  }, [isConnected, enableAutoReconnect, connectionAttempts, connect, connectors]);
 
   const handleConnect = async (connectorId: string) => {
     try {
@@ -57,30 +103,59 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnectionCh
     <div className="space-y-4">
       <h3 className="text-lg font-medium text-gray-900">Connect Wallet</h3>
       <div className="grid gap-3">
-        {connectors.map((connector) => (
-          <button
-            key={connector.id}
-            onClick={() => handleConnect(connector.id)}
-            disabled={isConnecting || isPending}
-            className="w-full px-4 py-3 text-left bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="text-xs font-medium text-gray-600">
-                  {connector.name.charAt(0)}
-                </span>
+        {/* Prioritize MetaMask */}
+        {connectors
+          .filter(connector => connector.id === 'metaMask')
+          .map((connector) => (
+            <button
+              key={connector.id}
+              onClick={() => handleConnect(connector.id)}
+              disabled={isConnecting || isPending}
+              className="w-full px-4 py-3 text-left bg-orange-50 border border-orange-300 rounded-lg hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-bold text-white">M</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    MetaMask 🦊
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Connect with MetaMask wallet
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  {connector.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Connect using {connector.name}
-                </p>
+            </button>
+          ))}
+
+        {/* Other connectors */}
+        {connectors
+          .filter(connector => connector.id !== 'metaMask')
+          .map((connector) => (
+            <button
+              key={connector.id}
+              onClick={() => handleConnect(connector.id)}
+              disabled={isConnecting || isPending}
+              className="w-full px-4 py-3 text-left bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-medium text-gray-600">
+                    {connector.name.charAt(0)}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {connector.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Connect using {connector.name}
+                  </p>
+                </div>
               </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          ))}
       </div>
       {isConnecting && (
         <div className="text-center text-sm text-gray-600">
