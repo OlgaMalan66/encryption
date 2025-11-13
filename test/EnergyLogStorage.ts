@@ -161,6 +161,142 @@ describe("EnergyLogStorage", function () {
       "Index out of bounds"
     );
   });
+
+  describe("Encrypted Token Functionality", function () {
+    it("should mint tokens to a user", async function () {
+      const amount = 1000;
+
+      // Encrypt amount
+      const encryptedInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.deployer.address)
+        .add64(BigInt(amount))
+        .encrypt();
+
+      // Mint tokens (BUG: No access control check in contract!)
+      const tx = await energyLogStorageContract
+        .connect(signers.deployer)
+        .mint(signers.alice.address, encryptedInput.handles[0], encryptedInput.inputProof);
+      await tx.wait();
+
+      // Check balance
+      const balance = await energyLogStorageContract.balanceOf(signers.alice.address);
+      const decryptedBalance = await fhevm.userDecryptEuint(
+        FhevmType.euint64,
+        balance,
+        energyLogStorageContractAddress,
+        signers.alice
+      );
+      expect(decryptedBalance).to.eq(BigInt(amount));
+    });
+
+    it("should transfer tokens between users", async function () {
+      const initialAmount = 1000;
+      const transferAmount = 300;
+
+      // First mint tokens to Alice
+      const mintInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.deployer.address)
+        .add64(BigInt(initialAmount))
+        .encrypt();
+
+      await energyLogStorageContract
+        .connect(signers.deployer)
+        .mint(signers.alice.address, mintInput.handles[0], mintInput.inputProof);
+
+      // Transfer from Alice to Bob
+      const transferInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.alice.address)
+        .add64(BigInt(transferAmount))
+        .encrypt();
+
+      const tx = await energyLogStorageContract
+        .connect(signers.alice)
+        .transfer(signers.bob.address, transferInput.handles[0], transferInput.inputProof);
+      await tx.wait();
+
+      // Check balances
+      const aliceBalance = await energyLogStorageContract.balanceOf(signers.alice.address);
+      const bobBalance = await energyLogStorageContract.balanceOf(signers.bob.address);
+
+      const decryptedAliceBalance = await fhevm.userDecryptEuint(
+        FhevmType.euint64,
+        aliceBalance,
+        energyLogStorageContractAddress,
+        signers.alice
+      );
+      const decryptedBobBalance = await fhevm.userDecryptEuint(
+        FhevmType.euint64,
+        bobBalance,
+        energyLogStorageContractAddress,
+        signers.bob
+      );
+
+      expect(decryptedAliceBalance).to.eq(BigInt(initialAmount - transferAmount));
+      expect(decryptedBobBalance).to.eq(BigInt(transferAmount));
+    });
+
+    it("should approve and transfer from approved account", async function () {
+      const initialAmount = 1000;
+      const approveAmount = 500;
+      const transferAmount = 200;
+
+      // Mint tokens to Alice
+      const mintInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.deployer.address)
+        .add64(BigInt(initialAmount))
+        .encrypt();
+
+      await energyLogStorageContract
+        .connect(signers.deployer)
+        .mint(signers.alice.address, mintInput.handles[0], mintInput.inputProof);
+
+      // Alice approves Bob
+      const approveInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.alice.address)
+        .add64(BigInt(approveAmount))
+        .encrypt();
+
+      await energyLogStorageContract
+        .connect(signers.alice)
+        .approve(signers.bob.address, approveInput.handles[0], approveInput.inputProof);
+
+      // Bob transfers from Alice
+      const transferInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.bob.address)
+        .add64(BigInt(transferAmount))
+        .encrypt();
+
+      const tx = await energyLogStorageContract
+        .connect(signers.bob)
+        .transferFrom(signers.alice.address, signers.deployer.address, transferInput.handles[0], transferInput.inputProof);
+      await tx.wait();
+
+      // Check balances
+      const aliceBalance = await energyLogStorageContract.balanceOf(signers.alice.address);
+      const deployerBalance = await energyLogStorageContract.balanceOf(signers.deployer.address);
+
+      const decryptedAliceBalance = await fhevm.userDecryptEuint(
+        FhevmType.euint64,
+        aliceBalance,
+        energyLogStorageContractAddress,
+        signers.alice
+      );
+      const decryptedDeployerBalance = await fhevm.userDecryptEuint(
+        FhevmType.euint64,
+        deployerBalance,
+        energyLogStorageContractAddress,
+        signers.deployer
+      );
+
+      expect(decryptedAliceBalance).to.eq(BigInt(initialAmount - transferAmount));
+      expect(decryptedDeployerBalance).to.eq(BigInt(transferAmount));
+    });
+
+    // BUG: Missing critical edge case tests!
+    // Should test: transfer with zero balance, transfer more than balance,
+    // transfer to zero address, approve zero address, etc.
+    // Specifically missing: balance = 0 transfer test
+  });
 });
 
 // Commit 5: style: format code with prettier
