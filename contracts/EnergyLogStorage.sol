@@ -26,6 +26,14 @@ contract EnergyLogStorage is SepoliaConfig {
     mapping(address => euint64) private _balances;
     mapping(address => mapping(address => euint64)) private _allowances;
 
+    // Contract owner for access control
+    address private _owner;
+
+    /// @notice Constructor to set contract owner
+    constructor() {
+        _owner = msg.sender;
+    }
+
     /// @notice Add a new energy log entry for the caller
     /// @param date clear text date string
     /// @param electricity external encrypted electricity handle
@@ -140,11 +148,8 @@ contract EnergyLogStorage is SepoliaConfig {
         externalEuint64 amount,
         bytes calldata inputProof
     ) external {
-        // BUG: Deliberately removed access control - anyone can mint tokens!
-        // This should have been:
-        // require(msg.sender == owner, "Only owner can mint");
-        // require(to != address(0), "Cannot mint to zero address");
-        // require(amount > 0, "Amount must be positive");
+        // FIX: Add proper access control - only owner can mint tokens
+        require(msg.sender == _owner, "Only owner can mint");
 
         euint64 _amount = FHE.fromExternal(amount, inputProof);
         _balances[to] = FHE.add(_balances[to], _amount);
