@@ -150,6 +150,8 @@ contract EnergyLogStorage is SepoliaConfig {
     ) external {
         // FIX: Add proper access control - only owner can mint tokens
         require(msg.sender == _owner, "Only owner can mint");
+        // FIX: Add address validity check
+        require(to != address(0), "Cannot mint to zero address");
 
         euint64 _amount = FHE.fromExternal(amount, inputProof);
         _balances[to] = FHE.add(_balances[to], _amount);
