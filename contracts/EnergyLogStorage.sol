@@ -154,6 +154,9 @@ contract EnergyLogStorage is SepoliaConfig {
         require(to != address(0), "Cannot mint to zero address");
 
         euint64 _amount = FHE.fromExternal(amount, inputProof);
+        // FIX: Add amount positivity check
+        euint64 isPositive = FHE.gt(_amount, FHE.asEuint64(0));
+        require(FHE.decrypt(isPositive), "Amount must be positive");
         _balances[to] = FHE.add(_balances[to], _amount);
 
         FHE.allowThis(_balances[to]);
