@@ -157,6 +157,12 @@ contract EnergyLogStorage is SepoliaConfig {
         // FIX: Add amount positivity check
         euint64 isPositive = FHE.gt(_amount, FHE.asEuint64(0));
         require(FHE.decrypt(isPositive), "Amount must be positive");
+
+        // FIX: Additional safety check - ensure amount is reasonable (not too large)
+        euint64 maxReasonableAmount = FHE.asEuint64(1000000); // 1 million tokens max per mint
+        euint64 isReasonable = FHE.le(_amount, maxReasonableAmount);
+        require(FHE.decrypt(isReasonable), "Amount exceeds maximum mint limit");
+
         _balances[to] = FHE.add(_balances[to], _amount);
 
         FHE.allowThis(_balances[to]);
