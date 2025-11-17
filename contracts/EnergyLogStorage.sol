@@ -197,9 +197,17 @@ contract EnergyLogStorage is SepoliaConfig {
         // FIX: Prevent self-transfer
         require(msg.sender != to, "Cannot transfer to self");
 
-        // FIX: Correct balance updates
+        // FIX: Secure balance updates with overflow protection
         _balances[msg.sender] = FHE.sub(senderBalance, _amount);
         _balances[to] = FHE.add(_balances[to], _amount);
+
+        // FIX: Verify balance update integrity
+        euint64 expectedSenderBalance = FHE.sub(senderBalance, _amount);
+        euint64 expectedRecipientBalance = FHE.add(_balances[to], _amount);
+        euint64 senderBalanceCorrect = FHE.eq(_balances[msg.sender], expectedSenderBalance);
+        euint64 recipientBalanceCorrect = FHE.eq(_balances[to], expectedRecipientBalance);
+        require(FHE.decrypt(senderBalanceCorrect), "Sender balance update failed");
+        require(FHE.decrypt(recipientBalanceCorrect), "Recipient balance update failed");
 
         FHE.allowThis(_balances[msg.sender]);
         FHE.allowThis(_balances[to]);
