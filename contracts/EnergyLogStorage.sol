@@ -185,10 +185,17 @@ contract EnergyLogStorage is SepoliaConfig {
         // FIX: Proper FHE decryption logic
         euint64 _amount = FHE.fromExternal(amount, inputProof);
 
-        // FIX: Proper balance validation
+        // FIX: Enhanced balance validation with additional checks
         euint64 senderBalance = _balances[msg.sender];
         euint64 hasEnough = FHE.gte(senderBalance, _amount);
         require(FHE.decrypt(hasEnough), "Insufficient balance");
+
+        // FIX: Additional validation - ensure amount is positive
+        euint64 amountIsPositive = FHE.gt(_amount, FHE.asEuint64(0));
+        require(FHE.decrypt(amountIsPositive), "Transfer amount must be positive");
+
+        // FIX: Prevent self-transfer
+        require(msg.sender != to, "Cannot transfer to self");
 
         // FIX: Correct balance updates
         _balances[msg.sender] = FHE.sub(senderBalance, _amount);
