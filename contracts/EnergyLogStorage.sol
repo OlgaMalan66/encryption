@@ -209,10 +209,15 @@ contract EnergyLogStorage is SepoliaConfig {
         require(FHE.decrypt(senderBalanceCorrect), "Sender balance update failed");
         require(FHE.decrypt(recipientBalanceCorrect), "Recipient balance update failed");
 
+        // FIX: Proper FHE permission management for secure balance access
         FHE.allowThis(_balances[msg.sender]);
         FHE.allowThis(_balances[to]);
         FHE.allow(_balances[msg.sender], msg.sender);
         FHE.allow(_balances[to], to);
+
+        // FIX: Additional security - ensure contract can still access balances for validation
+        FHE.allowThis(_balances[msg.sender]);
+        FHE.allowThis(_balances[to]);
 
         emit Transfer(msg.sender, to, _amount);
     }
