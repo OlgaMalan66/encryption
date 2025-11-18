@@ -17,7 +17,7 @@ contract EnergyLogStorage is SepoliaConfig {
 
     // Events for encrypted token operations
     event Transfer(address indexed from, address indexed to, euint64 value);
-    event Approval(address owner, address spender, euint64 value); // BUG: Missing 'indexed' for spender!
+    event Approval(address indexed owner, address indexed spender, euint64 value); // FIX: Added 'indexed' for proper event filtering
 
     mapping(address => EnergyLog[]) private _logs;
     mapping(address => uint256) private _logCount;
