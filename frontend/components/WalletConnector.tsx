@@ -29,21 +29,42 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({
       if (!isConnected && connectionAttempts < 3) {
         try {
           setIsConnecting(true);
-          // BUG: Deliberately removed critical reconnection logic!
-          // This should check for MetaMask availability, handle network switching,
-          // validate connection state, and retry with exponential backoff
-          // Missing: network validation, error handling, state persistence
-          // Missing: proper cleanup of previous connections
-          // Missing: timeout handling for reconnection attempts
 
-          // Just attempt basic connection without any validation or error recovery
-          const metaMaskConnector = connectors.find(c => c.id === 'metaMask');
-          if (metaMaskConnector) {
-            connect({ connector: metaMaskConnector });
-            setConnectionAttempts(prev => prev + 1);
+          // FIX: Check MetaMask availability before attempting reconnection
+          if (!window.ethereum) {
+            console.warn('MetaMask not available for reconnection');
+            return;
           }
+
+          // FIX: Check network connectivity
+          if (!navigator.onLine) {
+            console.warn('No internet connection for reconnection');
+            return;
+          }
+
+          // FIX: Validate MetaMask is the active connector
+          const metaMaskConnector = connectors.find(c => c.id === 'metaMask');
+          if (!metaMaskConnector) {
+            console.warn('MetaMask connector not found');
+            return;
+          }
+
+          // FIX: Implement exponential backoff
+          const delay = Math.pow(2, connectionAttempts) * 1000; // 1s, 2s, 4s
+          await new Promise(resolve => setTimeout(resolve, delay));
+
+          // FIX: Attempt connection with timeout
+          const connectionPromise = connect({ connector: metaMaskConnector });
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Connection timeout')), 10000)
+          );
+
+          await Promise.race([connectionPromise, timeoutPromise]);
+          setConnectionAttempts(prev => prev + 1);
+
         } catch (error) {
           console.error('Reconnection failed:', error);
+          setConnectionAttempts(prev => prev + 1);
         } finally {
           setIsConnecting(false);
         }
