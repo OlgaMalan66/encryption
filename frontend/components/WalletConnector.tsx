@@ -16,6 +16,8 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({
   const { disconnect } = useDisconnect();
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const [lastReconnectTime, setLastReconnectTime] = useState<number>(0);
+  const [reconnectTimeoutId, setReconnectTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     onConnectionChange?.(isConnected);
@@ -26,9 +28,18 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({
     if (!enableAutoReconnect) return;
 
     const handleReconnect = async () => {
-      if (!isConnected && connectionAttempts < 3) {
+      const now = Date.now();
+      const timeSinceLastAttempt = now - lastReconnectTime;
+
+      // FIX: Prevent too frequent reconnection attempts
+      if (timeSinceLastAttempt < 5000) { // Minimum 5 seconds between attempts
+        return;
+      }
+
+      if (!isConnected && connectionAttempts < 5) { // Allow up to 5 attempts
         try {
           setIsConnecting(true);
+          setLastReconnectTime(now);
 
           // FIX: Check MetaMask availability before attempting reconnection
           if (!window.ethereum) {
@@ -49,22 +60,34 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({
             return;
           }
 
-          // FIX: Implement exponential backoff
-          const delay = Math.pow(2, connectionAttempts) * 1000; // 1s, 2s, 4s
+          // FIX: Smart delay based on attempt count and time
+          let delay = 1000; // Base 1 second
+          if (connectionAttempts > 0) {
+            delay = Math.min(Math.pow(2, connectionAttempts) * 1000, 30000); // Max 30 seconds
+          }
           await new Promise(resolve => setTimeout(resolve, delay));
 
           // FIX: Attempt connection with timeout
           const connectionPromise = connect({ connector: metaMaskConnector });
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Connection timeout')), 10000)
+            setTimeout(() => reject(new Error('Connection timeout')), 15000) // 15 second timeout
           );
 
           await Promise.race([connectionPromise, timeoutPromise]);
-          setConnectionAttempts(prev => prev + 1);
+
+          // FIX: Reset attempts on successful connection
+          setConnectionAttempts(0);
 
         } catch (error) {
           console.error('Reconnection failed:', error);
           setConnectionAttempts(prev => prev + 1);
+
+          // FIX: Schedule next attempt with increasing delay
+          if (connectionAttempts < 4) {
+            const nextDelay = Math.min(Math.pow(2, connectionAttempts + 1) * 2000, 60000); // Max 1 minute
+            const timeoutId = setTimeout(handleReconnect, nextDelay);
+            setReconnectTimeoutId(timeoutId);
+          }
         } finally {
           setIsConnecting(false);
         }
