@@ -71,16 +71,62 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({
       }
     };
 
-    // BUG: No proper event listeners for connection state changes!
-    // Missing: ethereum.on('disconnect'), ethereum.on('accountsChanged')
-    // Missing: window.addEventListener('online', handleReconnect)
-    // Missing: visibilitychange handling
-
-    // Only listen to basic account changes
+    // FIX: Proper event listeners for connection state changes
     if (window.ethereum) {
-      // Missing proper event cleanup and error handling
-      // This is incomplete and won't handle disconnection properly
+      const ethereum = window.ethereum;
+
+      // FIX: Listen for account changes
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length === 0) {
+          // User disconnected their wallet
+          console.log('Wallet disconnected');
+          setConnectionAttempts(0); // Reset attempts on manual disconnect
+        } else {
+          console.log('Accounts changed:', accounts);
+        }
+      };
+
+      // FIX: Listen for chain changes
+      const handleChainChanged = (chainId: string) => {
+        console.log('Chain changed:', chainId);
+        // Trigger reconnection check when network changes
+        setTimeout(handleReconnect, 1000);
+      };
+
+      // FIX: Listen for disconnection
+      const handleDisconnect = (error: any) => {
+        console.log('Wallet disconnected:', error);
+        if (enableAutoReconnect && !isConnected) {
+          setTimeout(handleReconnect, 2000);
+        }
+      };
+
+      ethereum.on('accountsChanged', handleAccountsChanged);
+      ethereum.on('chainChanged', handleChainChanged);
+      ethereum.on('disconnect', handleDisconnect);
+
+      // FIX: Cleanup function
+      return () => {
+        ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        ethereum.removeListener('chainChanged', handleChainChanged);
+        ethereum.removeListener('disconnect', handleDisconnect);
+      };
     }
+
+    // FIX: Listen for network connectivity changes
+    const handleOnline = () => {
+      console.log('Network back online');
+      if (!isConnected && enableAutoReconnect) {
+        setTimeout(handleReconnect, 1000);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    // FIX: Cleanup
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
   }, [isConnected, enableAutoReconnect, connectionAttempts, connect, connectors]);
 
   const handleConnect = async (connectorId: string) => {
