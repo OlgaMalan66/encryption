@@ -292,10 +292,34 @@ describe("EnergyLogStorage", function () {
       expect(decryptedDeployerBalance).to.eq(BigInt(transferAmount));
     });
 
-    // BUG: Missing critical edge case tests!
-    // Should test: transfer with zero balance, transfer more than balance,
-    // transfer to zero address, approve zero address, etc.
-    // Specifically missing: balance = 0 transfer test
+    it("should reject transfer with zero balance", async function () {
+      const transferAmount = 100;
+
+      // Alice has no tokens initially
+      const aliceBalance = await energyLogStorageContract.balanceOf(signers.alice.address);
+      const decryptedBalance = await fhevm.userDecryptEuint(
+        FhevmType.euint64,
+        aliceBalance,
+        energyLogStorageContractAddress,
+        signers.alice
+      );
+      expect(decryptedBalance).to.eq(BigInt(0));
+
+      // Try to transfer tokens from Alice (who has zero balance)
+      const transferInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.alice.address)
+        .add64(BigInt(transferAmount))
+        .encrypt();
+
+      // FIX: This should fail due to insufficient balance
+      await expect(
+        energyLogStorageContract
+          .connect(signers.alice)
+          .transfer(signers.bob.address, transferInput.handles[0], transferInput.inputProof)
+      ).to.be.revertedWith("Insufficient balance");
+    });
+
+    // FIX: More edge case tests to be added in subsequent commits
   });
 });
 
