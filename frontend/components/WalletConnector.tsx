@@ -128,27 +128,48 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({
       ethereum.on('chainChanged', handleChainChanged);
       ethereum.on('disconnect', handleDisconnect);
 
-      // FIX: Cleanup function
+        // FIX: Listen for network connectivity changes
+      const handleOnline = () => {
+        console.log('Network back online');
+        if (!isConnected && enableAutoReconnect) {
+          setTimeout(handleReconnect, 1000);
+        }
+      };
+
+      // FIX: Listen for visibility changes (user returns to tab)
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible' && !isConnected && enableAutoReconnect) {
+          console.log('Tab became visible, checking connection');
+          setTimeout(handleReconnect, 500);
+        }
+      };
+
+      window.addEventListener('online', handleOnline);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      // FIX: Enhanced cleanup function
       return () => {
+        // Clear any pending reconnection timeouts
+        if (reconnectTimeoutId) {
+          clearTimeout(reconnectTimeoutId);
+          setReconnectTimeoutId(null);
+        }
+
+        // Remove all event listeners
         ethereum.removeListener('accountsChanged', handleAccountsChanged);
         ethereum.removeListener('chainChanged', handleChainChanged);
         ethereum.removeListener('disconnect', handleDisconnect);
+        window.removeEventListener('online', handleOnline);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     }
 
-    // FIX: Listen for network connectivity changes
-    const handleOnline = () => {
-      console.log('Network back online');
-      if (!isConnected && enableAutoReconnect) {
-        setTimeout(handleReconnect, 1000);
-      }
-    };
-
-    window.addEventListener('online', handleOnline);
-
-    // FIX: Cleanup
+    // FIX: Cleanup for non-ethereum environments
     return () => {
-      window.removeEventListener('online', handleOnline);
+      if (reconnectTimeoutId) {
+        clearTimeout(reconnectTimeoutId);
+        setReconnectTimeoutId(null);
+      }
     };
   }, [isConnected, enableAutoReconnect, connectionAttempts, connect, connectors]);
 
