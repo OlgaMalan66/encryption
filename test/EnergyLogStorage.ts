@@ -319,6 +319,34 @@ describe("EnergyLogStorage", function () {
       ).to.be.revertedWith("Insufficient balance");
     });
 
+    it("should reject transfer with zero amount", async function () {
+      const initialAmount = 1000;
+      const zeroAmount = 0;
+
+      // First mint tokens to Alice
+      const mintInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.deployer.address)
+        .add64(BigInt(initialAmount))
+        .encrypt();
+
+      await energyLogStorageContract
+        .connect(signers.deployer)
+        .mint(signers.alice.address, mintInput.handles[0], mintInput.inputProof);
+
+      // Try to transfer zero amount
+      const zeroTransferInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.alice.address)
+        .add64(BigInt(zeroAmount))
+        .encrypt();
+
+      // FIX: This should fail due to zero amount transfer
+      await expect(
+        energyLogStorageContract
+          .connect(signers.alice)
+          .transfer(signers.bob.address, zeroTransferInput.handles[0], zeroTransferInput.inputProof)
+      ).to.be.revertedWith("Transfer amount must be positive");
+    });
+
     // FIX: More edge case tests to be added in subsequent commits
   });
 });
