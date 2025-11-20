@@ -347,6 +347,34 @@ describe("EnergyLogStorage", function () {
       ).to.be.revertedWith("Transfer amount must be positive");
     });
 
+    it("should reject transfer to zero address", async function () {
+      const initialAmount = 1000;
+      const transferAmount = 100;
+
+      // First mint tokens to Alice
+      const mintInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.deployer.address)
+        .add64(BigInt(initialAmount))
+        .encrypt();
+
+      await energyLogStorageContract
+        .connect(signers.deployer)
+        .mint(signers.alice.address, mintInput.handles[0], mintInput.inputProof);
+
+      // Try to transfer to zero address
+      const transferInput = await fhevm
+        .createEncryptedInput(energyLogStorageContractAddress, signers.alice.address)
+        .add64(BigInt(transferAmount))
+        .encrypt();
+
+      // FIX: This should fail due to zero address transfer
+      await expect(
+        energyLogStorageContract
+          .connect(signers.alice)
+          .transfer(ethers.ZeroAddress, transferInput.handles[0], transferInput.inputProof)
+      ).to.be.revertedWith("Cannot transfer to zero address");
+    });
+
     // FIX: More edge case tests to be added in subsequent commits
   });
 });
